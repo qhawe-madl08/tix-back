@@ -1,32 +1,41 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CalendarDays, MapPin, Clock } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { getEvents } from "@/lib/api"
 
 export function UpcomingEvents() {
-  // This would be fetched from your API
-  const events = [
-    {
-      id: "1",
-      title: "Summer Music Festival",
-      image: "/placeholder.svg?height=400&width=600",
-      date: "June 15-17, 2024",
-      time: "12:00 PM - 11:00 PM",
-      location: "Central Park, New York",
-      status: "Confirmed",
-    },
-    {
-      id: "2",
-      title: "Tech Conference 2024",
-      image: "/placeholder.svg?height=400&width=600",
-      date: "July 10-12, 2024",
-      time: "9:00 AM - 5:00 PM",
-      location: "Convention Center, San Francisco",
-      status: "Confirmed",
-    },
-  ]
+  const [events, setEvents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchEvents() {
+      try {
+        // Optionally, pass params to filter for upcoming events if your API supports it
+        const data = await getEvents({ upcoming: "true" })
+        setEvents(data)
+      } catch (err) {
+        setError("Failed to load upcoming events.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchEvents()
+  }, [])
+
+  if (loading) {
+    return <div>Loading upcoming events...</div>
+  }
+
+  if (error) {
+    return <div className="text-red-500">{error}</div>
+  }
 
   if (events.length === 0) {
     return (

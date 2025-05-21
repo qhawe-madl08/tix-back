@@ -6,11 +6,16 @@ import crypto from "crypto"
 
 const router = express.Router()
 
-// Validation schema
+// Validation schema for purchasing tickets (multiple types)
 const purchaseSchema = z.object({
   eventId: z.string().uuid(),
-  ticketTypeId: z.string().uuid(),
-  quantity: z.number().int().positive(),
+  tickets: z.array(
+    z.object({
+      ticketTypeId: z.string().uuid(),
+      quantity: z.number().int().positive(),
+    })
+  ),
+  customerInfo: z.record(z.string()).optional(),
 })
 
 // Get user's tickets
@@ -24,6 +29,9 @@ router.get("/my-tickets", authenticate, async (req, res) => {
         event: true,
         ticketType: true,
       },
+      orderBy: {
+        createdAt: "desc",
+      },
     })
 
     res.json(tickets)
@@ -33,7 +41,7 @@ router.get("/my-tickets", authenticate, async (req, res) => {
   }
 })
 
-// Purchase tickets
+// Purchase tickets (supports multiple ticket types)
 router.post("/purchase", authenticate, async (req, res) => {
   try {
     const validation = purchaseSchema.safeParse(req.body)
@@ -42,55 +50,53 @@ router.post("/purchase", authenticate, async (req, res) => {
       return res.status(400).json({ error: validation.error.errors })
     }
 
-    const { eventId, ticketTypeId, quantity } = validation.data
+    const { eventId, tickets, customerInfo } = validation.data
+    const createdTickets = []
 
-    // Check if ticket type exists and has enough available tickets
-    const ticketType = await prisma.ticketType.findUnique({
-      where: { id: ticketTypeId },
-    })
-
-    if (!ticketType) {
-      return res.status(404).json({ error: "Ticket type not found" })
-    }
-
-    if (ticketType.quantity < quantity) {
-      return res.status(400).json({ error: "Not enough tickets available" })
-    }
-
-    // Create tickets
-    const tickets = []
-
-    for (let i = 0; i < quantity; i++) {
-      // Generate unique QR code
-      const qrCode = crypto.randomBytes(16).toString("hex")
-
-      const ticket = await prisma.ticket.create({
-        data: {
-          userId: req.user!.id,
-          eventId,
-          ticketTypeId,
-          qrCode,
-        },
-        include: {
-          event: true,
-          ticketType: true,
-        },
+    for (const { ticketTypeId, quantity } of tickets) {
+      // Check if ticket type exists and has enough available tickets
+      const ticketType = await prisma.ticketType.findUnique({
+        where: { id: ticketTypeId },
       })
 
-      tickets.push(ticket)
-    }
+      if (!ticketType) {
+        return res.status(404).json({ error: `Ticket type not found: ${ticketTypeId}` })
+      }
 
-    // Update available ticket quantity
-    await prisma.ticketType.update({
-      where: { id: ticketTypeId },
-      data: {
-        quantity: ticketType.quantity - quantity,
-      },
-    })
+      if (ticketType.quantity < quantity) {
+        return res.status(400).json({ error: `Not enough tickets available for type: ${ticketType.name}` })
+      }
+
+      // Create tickets
+      for (let i = 0; i < quantity; i++) {
+        const qrCode = crypto.randomBytes(16).toString("hex")
+        const ticket = await prisma.ticket.create({
+          data: {
+            userId: req.user!.id,
+            eventId,
+            ticketTypeId,
+            qrCode,
+          },
+          include: {
+            event: true,
+            ticketType: true,
+          },
+        })
+        createdTickets.push(ticket)
+      }
+
+      // Update available ticket quantity
+      await prisma.ticketType.update({
+        where: { id: ticketTypeId },
+        data: {
+          quantity: ticketType.quantity - quantity,
+        },
+      })
+    }
 
     res.status(201).json({
       message: "Tickets purchased successfully",
-      tickets,
+      tickets: createdTickets,
     })
   } catch (error) {
     console.error("Error purchasing tickets:", error)
@@ -147,6 +153,20 @@ router.post("/verify/:qrCode", authenticate, async (req, res) => {
     })
   } catch (error) {
     console.error("Error verifying ticket:", error)
+    res.status(500).json({ error: "Internal server error" })
+  }
+})
+
+// Optional: Get ticket types for an event
+router.get("/event/:eventId/ticket-types", async (req, res) => {
+  try {
+    const { eventId } = req.params
+    const ticketTypes = await prisma.ticketType.findMany({
+      where: { eventId },
+    })
+    res.json(ticketTypes)
+  } catch (error) {
+    console.error("Error fetching ticket types:", error)
     res.status(500).json({ error: "Internal server error" })
   }
 })

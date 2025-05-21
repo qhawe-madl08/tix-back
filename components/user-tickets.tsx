@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -8,49 +8,61 @@ import { Badge } from "@/components/ui/badge"
 import { Download, Share2, QrCode } from "lucide-react"
 import Image from "next/image"
 import Link from "next/link"
+import { getUserTickets } from "@/lib/api" // <-- Implement this API call
+
+type Ticket = {
+  id: string
+  eventId: string
+  eventName: string
+  eventImage: string
+  ticketType: string
+  date: string // ISO string or formatted date
+  location: string
+  qrCode: string
+  isPast?: boolean
+}
 
 export function UserTickets() {
   const [activeTab, setActiveTab] = useState("upcoming")
+  const [tickets, setTickets] = useState<{ upcoming: Ticket[]; past: Ticket[] }>({ upcoming: [], past: [] })
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // This would be fetched from your API
-  const tickets = {
-    upcoming: [
-      {
-        id: "ticket1",
-        eventId: "1",
-        eventName: "Summer Music Festival",
-        eventImage: "/placeholder.svg?height=400&width=600",
-        ticketType: "VIP Pass",
-        date: "June 15-17, 2024",
-        location: "Central Park, New York",
-        qrCode: "/placeholder.svg?height=200&width=200",
-      },
-      {
-        id: "ticket2",
-        eventId: "2",
-        eventName: "Tech Conference 2024",
-        eventImage: "/placeholder.svg?height=400&width=600",
-        ticketType: "General Admission",
-        date: "July 10-12, 2024",
-        location: "Convention Center, San Francisco",
-        qrCode: "/placeholder.svg?height=200&width=200",
-      },
-    ],
-    past: [
-      {
-        id: "ticket3",
-        eventId: "3",
-        eventName: "Winter Concert Series",
-        eventImage: "/placeholder.svg?height=400&width=600",
-        ticketType: "General Admission",
-        date: "December 10-12, 2023",
-        location: "Music Hall, Boston",
-        qrCode: "/placeholder.svg?height=200&width=200",
-      },
-    ],
-  }
+  useEffect(() => {
+    async function fetchTickets() {
+      setLoading(true)
+      setError(null)
+      try {
+        const data: Ticket[] = await getUserTickets()
+        // Split tickets into upcoming and past based on date
+        const now = new Date()
+        const upcoming: Ticket[] = []
+        const past: Ticket[] = []
+        data.forEach((ticket) => {
+          const eventDate = new Date(ticket.date)
+          if (eventDate >= now) {
+            upcoming.push(ticket)
+          } else {
+            past.push(ticket)
+          }
+        })
+        setTickets({ upcoming, past })
+      } catch (err) {
+        setError("Failed to load your tickets.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchTickets()
+  }, [])
 
-  const renderTickets = (ticketList: typeof tickets.upcoming) => {
+  const renderTickets = (ticketList: Ticket[]) => {
+    if (loading) {
+      return <div>Loading tickets...</div>
+    }
+    if (error) {
+      return <div className="text-red-500">{error}</div>
+    }
     if (ticketList.length === 0) {
       return (
         <div className="text-center py-12">

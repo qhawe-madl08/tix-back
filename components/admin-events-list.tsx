@@ -1,41 +1,41 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { MoreHorizontal, Eye, Edit, Trash } from "lucide-react"
 import Link from "next/link"
+import { getEvents } from "@/lib/api" // Make sure this path is correct
+
+type Event = {
+  id: string
+  title: string
+  date: string
+  location: string
+  status: string
+  ticketsSold: number
+}
 
 export function AdminEventsList() {
-  // This would be fetched from your API
-  const [events, setEvents] = useState([
-    {
-      id: "1",
-      title: "Summer Music Festival",
-      date: "June 15-17, 2024",
-      location: "Central Park, New York",
-      status: "published",
-      ticketsSold: 1250,
-    },
-    {
-      id: "2",
-      title: "Tech Conference 2024",
-      date: "July 10-12, 2024",
-      location: "Convention Center, San Francisco",
-      status: "draft",
-      ticketsSold: 0,
-    },
-    {
-      id: "3",
-      title: "International Food Festival",
-      date: "August 5-7, 2024",
-      location: "Downtown, Chicago",
-      status: "published",
-      ticketsSold: 875,
-    },
-  ])
+  const [events, setEvents] = useState<Event[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchEvents() {
+      try {
+        const data = await getEvents()
+        setEvents(data)
+      } catch (err) {
+        setError("Failed to load events")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchEvents()
+  }, [])
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -47,6 +47,9 @@ export function AdminEventsList() {
         return <Badge variant="secondary">{status}</Badge>
     }
   }
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div className="text-red-500">{error}</div>
 
   return (
     <div className="rounded-md border">

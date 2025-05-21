@@ -1,11 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { CalendarDays, Clock, MapPin, Users, Share2, Heart } from "lucide-react"
 import Image from "next/image"
+import { getEvent } from "@/lib/api"
 
 interface EventDetailsProps {
   id: string
@@ -13,23 +14,27 @@ interface EventDetailsProps {
 
 export function EventDetails({ id }: EventDetailsProps) {
   const [isSaved, setIsSaved] = useState(false)
+  const [event, setEvent] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // This would be fetched from your API based on the ID
-  const event = {
-    id,
-    title: "Summer Music Festival",
-    description:
-      "Join us for three days of amazing music across five stages featuring top artists from around the world. Enjoy food vendors, art installations, and more in the beautiful setting of Central Park.",
-    longDescription:
-      "The Summer Music Festival is the premier music event of the season, featuring over 50 artists across multiple genres. From rock and pop to electronic and hip-hop, there's something for everyone. In addition to the music, explore art installations, gourmet food vendors, and interactive experiences throughout the festival grounds. VIP packages include exclusive viewing areas, premium food and beverage options, and special artist meet-and-greets.",
-    image: "/placeholder.svg?height=600&width=1200",
-    date: "June 15-17, 2024",
-    time: "12:00 PM - 11:00 PM",
-    location: "Central Park, New York",
-    organizer: "Festival Productions Inc.",
-    category: "Music",
-    attendees: 1250,
-  }
+  useEffect(() => {
+    async function fetchEvent() {
+      try {
+        const data = await getEvent(id)
+        setEvent(data)
+      } catch (err) {
+        setError("Failed to load event details.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchEvent()
+  }, [id])
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div className="text-red-500">{error}</div>
+  if (!event) return null
 
   return (
     <div>
@@ -84,7 +89,7 @@ export function EventDetails({ id }: EventDetailsProps) {
         </TabsList>
         <TabsContent value="about" className="mt-6">
           <div className="prose dark:prose-invert max-w-none">
-            <p>{event.longDescription}</p>
+            <p>{event.longDescription || event.description}</p>
           </div>
         </TabsContent>
         <TabsContent value="lineup" className="mt-6">

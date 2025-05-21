@@ -1,19 +1,21 @@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 
-export function OrderSummary() {
-  // This would be fetched from your cart/state management
-  const orderDetails = {
-    eventName: "Summer Music Festival",
-    eventDate: "June 15-17, 2024",
-    tickets: [
-      { type: "General Admission", quantity: 2, price: 75 },
-      { type: "VIP Pass", quantity: 1, price: 150 },
-    ],
-    fees: 15,
-    taxes: 22.5,
-  }
+type Ticket = {
+  type: string
+  quantity: number
+  price: number
+}
 
+type OrderDetails = {
+  eventName: string
+  eventDate: string
+  tickets: Ticket[]
+  fees: number
+  taxes: number
+}
+
+export function OrderSummary({ orderDetails }: { orderDetails: OrderDetails }) {
   // Calculate totals
   const subtotal = orderDetails.tickets.reduce((sum, ticket) => sum + ticket.price * ticket.quantity, 0)
   const total = subtotal + orderDetails.fees + orderDetails.taxes

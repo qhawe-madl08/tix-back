@@ -1,38 +1,37 @@
+"use client"
+
+import { useEffect, useState } from "react"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CalendarDays, MapPin } from "lucide-react"
 import Link from "next/link"
 import Image from "next/image"
+import { getEvents } from "@/lib/api"
 
 export function FeaturedEvents() {
-  // This would be fetched from your API
-  const events = [
-    {
-      id: "1",
-      title: "Summer Music Festival",
-      image: "/placeholder.svg?height=400&width=600",
-      date: "June 15-17, 2024",
-      location: "Central Park, New York",
-      category: "Music",
-    },
-    {
-      id: "2",
-      title: "Tech Conference 2024",
-      image: "/placeholder.svg?height=400&width=600",
-      date: "July 10-12, 2024",
-      location: "Convention Center, San Francisco",
-      category: "Conference",
-    },
-    {
-      id: "3",
-      title: "International Food Festival",
-      image: "/placeholder.svg?height=400&width=600",
-      date: "August 5-7, 2024",
-      location: "Downtown, Chicago",
-      category: "Food & Drink",
-    },
-  ]
+  const [events, setEvents] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    async function fetchEvents() {
+      try {
+        // Optionally, pass params to filter for "featured" events if your API supports it
+        const data = await getEvents({ featured: "true" })
+        setEvents(data)
+      } catch (err) {
+        setError("Failed to load featured events.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchEvents()
+  }, [])
+
+  if (loading) return <div>Loading...</div>
+  if (error) return <div className="text-red-500">{error}</div>
+  if (!events.length) return <div>No featured events found.</div>
 
   return (
     <section className="container mx-auto px-4">

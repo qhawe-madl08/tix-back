@@ -1,11 +1,20 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { useToast } from "@/hooks/use-toast"
+import { getEvent } from "@/lib/api" // Or import a getTicketTypes(eventId) if you have one
+
+interface TicketType {
+  id: string
+  name: string
+  price: number
+  description: string
+  available: number
+}
 
 interface TicketOptionsProps {
   eventId: string
@@ -13,28 +22,33 @@ interface TicketOptionsProps {
 
 export function TicketOptions({ eventId }: TicketOptionsProps) {
   const { toast } = useToast()
-  const [quantities, setQuantities] = useState({
-    general: 0,
-    vip: 0,
-  })
+  const [ticketTypes, setTicketTypes] = useState<TicketType[]>([])
+  const [quantities, setQuantities] = useState<Record<string, number>>({})
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  // This would be fetched from your API based on the eventId
-  const ticketTypes = [
-    {
-      id: "general",
-      name: "General Admission",
-      price: 75,
-      description: "Access to all main stages and general festival grounds",
-      available: 500,
-    },
-    {
-      id: "vip",
-      name: "VIP Pass",
-      price: 150,
-      description: "Premium viewing areas, exclusive lounges, and complimentary refreshments",
-      available: 100,
-    },
-  ]
+  useEffect(() => {
+    async function fetchTicketTypes() {
+      setLoading(true)
+      setError(null)
+      try {
+        // Fetch event details and extract ticket types
+        const event = await getEvent(eventId)
+        setTicketTypes(event.ticketTypes || [])
+        // Initialize quantities for each ticket type
+        const initialQuantities: Record<string, number> = {}
+        ;(event.ticketTypes || []).forEach((tt: TicketType) => {
+          initialQuantities[tt.id] = 0
+        })
+        setQuantities(initialQuantities)
+      } catch (err) {
+        setError("Failed to load ticket types.")
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchTicketTypes()
+  }, [eventId])
 
   const handleQuantityChange = (id: string, value: number) => {
     if (value < 0) return
@@ -45,7 +59,7 @@ export function TicketOptions({ eventId }: TicketOptionsProps) {
   }
 
   const subtotal = ticketTypes.reduce((sum, ticket) => {
-    return sum + ticket.price * (quantities[ticket.id as keyof typeof quantities] || 0)
+    return sum + ticket.price * (quantities[ticket.id] || 0)
   }, 0)
 
   const handleAddToCart = () => {
@@ -59,12 +73,16 @@ export function TicketOptions({ eventId }: TicketOptionsProps) {
       return
     }
 
-    // In a real app, you would add these to a cart
+    // In a real app, you would add these to a cart or context
     toast({
       title: "Tickets added to cart",
       description: `${totalTickets} ticket(s) added to your cart`,
     })
   }
+
+  if (loading) return <div>Loading ticket options...</div>
+  if (error) return <div className="text-red-500">{error}</div>
+  if (!ticketTypes.length) return <div>No ticket types available for this event.</div>
 
   return (
     <Card>
@@ -88,22 +106,23 @@ export function TicketOptions({ eventId }: TicketOptionsProps) {
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => handleQuantityChange(ticket.id, quantities[ticket.id as keyof typeof quantities] - 1)}
-                disabled={quantities[ticket.id as keyof typeof quantities] <= 0}
+                onClick={() => handleQuantityChange(ticket.id, (quantities[ticket.id] || 0) - 1)}
+                disabled={(quantities[ticket.id] || 0) <= 0}
               >
                 -
               </Button>
               <Input
                 type="number"
                 min="0"
-                value={quantities[ticket.id as keyof typeof quantities] || 0}
+                value={quantities[ticket.id] || 0}
                 onChange={(e) => handleQuantityChange(ticket.id, Number.parseInt(e.target.value) || 0)}
                 className="w-16 text-center"
               />
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => handleQuantityChange(ticket.id, quantities[ticket.id as keyof typeof quantities] + 1)}
+                onClick={() => handleQuantityChange(ticket.id, (quantities[ticket.id] || 0) + 1)}
+                disabled={(quantities[ticket.id] || 0) >= ticket.available}
               >
                 +
               </Button>
