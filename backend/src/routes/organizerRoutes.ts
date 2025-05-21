@@ -53,7 +53,25 @@ router.get("/events/:eventId/sales", authenticate, async (req, res) => {
       },
     })
 
-    const salesData = ticketTypes.map((type) => ({
+    // Define the type for ticketTypes
+    type TicketTypeWithCount = {
+      id: string;
+      name: string;
+      price: number;
+      quantity: number;
+      _count: { tickets: number };
+    };
+
+    type SalesDataItem = {
+      ticketTypeId: string;
+      name: string;
+      price: number;
+      totalAvailable: number;
+      sold: number;
+      revenue: number;
+    };
+
+    const salesData = ticketTypes.map((type: TicketTypeWithCount): SalesDataItem => ({
       ticketTypeId: type.id,
       name: type.name,
       price: type.price,
@@ -62,8 +80,14 @@ router.get("/events/:eventId/sales", authenticate, async (req, res) => {
       revenue: type._count.tickets * type.price,
     }))
 
-    const totalRevenue = salesData.reduce((sum, item) => sum + item.revenue, 0)
-    const totalSold = salesData.reduce((sum, item) => sum + item.sold, 0)
+    const totalRevenue = salesData.reduce(
+      (sum: number, item: SalesDataItem) => sum + item.revenue,
+      0
+    )
+    const totalSold = salesData.reduce(
+      (sum: number, item: SalesDataItem) => sum + item.sold,
+      0
+    )
 
     res.json({
       eventId,
